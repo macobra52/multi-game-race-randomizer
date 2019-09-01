@@ -1,7 +1,7 @@
 Multi-Game Race Randomizer V0.1
 by MaCobra52
 
-As the title says, this is indeed a randomizer to generate a multi-game race allowing you to filter the games and type of goals you want to generate, whether they by short achievement-based objectives or longer full speedrun categories. The choice is up to you!
+As the title says, this is indeed a randomizer to generate a multi-game race allowing you to filter the games and type of goals you want to generate, whether they be short achievement-based objectives or longer full speedrun categories. The choice is up to you!
 
 Note:
 -Be sure Java is installed on your machine prior to running.
