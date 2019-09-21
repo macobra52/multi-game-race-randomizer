@@ -1,4 +1,4 @@
-package Constants;
+package constants;
 
 public enum GameType {
 	VANILLA("The base/original game without any modifications"),

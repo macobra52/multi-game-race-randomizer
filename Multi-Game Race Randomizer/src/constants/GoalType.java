@@ -1,4 +1,4 @@
-package Constants;
+package constants;
 
 public enum GoalType {
 	FAST_ACHIEVEMENT

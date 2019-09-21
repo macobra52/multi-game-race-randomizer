@@ -1,3 +1,4 @@
+package windows;
 import java.awt.EventQueue;
 
 import javax.swing.JFrame;
@@ -11,9 +12,13 @@ import javax.swing.ToolTipManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
-import Constants.Console;
-import Constants.GameType;
-import Constants.GoalType;
+import constants.Console;
+import constants.GameType;
+import constants.GoalType;
+import objects.Game;
+import objects.GameCheckBox;
+import objects.Goal;
+import utils.MRRGoalSaveLoad;
 
 import javax.swing.BoxLayout;
 import javax.swing.JLabel;
@@ -23,9 +28,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -44,7 +46,7 @@ public class MRRGui {
 	//Game list
 	private final JScrollPane scrollPane = new JScrollPane();
 	private final JPanel panel = new JPanel();
-	private Set<Game> gameList = new TreeSet<Game>();
+	private Set<GameCheckBox> gameList;
 	private final JLabel lblMultigameRaceRandomizer = new JLabel("Multi-Game Race Randomizer by MaCobra52");
 	private final JLabel lblSelectGamesTo = new JLabel("Select games to include:");
 	private final JButton btnSelectAll = new JButton("Select All");
@@ -52,7 +54,7 @@ public class MRRGui {
 	private final JButton btnSelectOnlyvanilla = new JButton("Select Only Vanilla Games");
 	
 	//Goals
-	private final JLabel lblSelectGoalsTo = new JLabel("Select goals to include");
+	private final JLabel lblSelectGoalsTo = new JLabel("Select goals to include:");
 	private final JCheckBox chckbxFastAchievements = new JCheckBox("Fast Achievements");
 	private final JCheckBox chckbxLongerAchievements = new JCheckBox("Longer Achievements");
 	private final JCheckBox chckbxFastSpeedrun = new JCheckBox("Fast Speedrun");
@@ -73,10 +75,10 @@ public class MRRGui {
 	private final JLabel lblNotEnoughGoals = new JLabel("Not enough goals for selected options");
 	
 	//List of goals imported and generated
-	private List<Goal> goals = new ArrayList<Goal>();
+	private List<Goal> goals;
 	
 	//All possible goals after filtering
-	private List<Goal> chosenGoals = new ArrayList<Goal>();
+	private List<Goal> chosenGoals;
 	
 	/**
 	 * Launch the application.
@@ -98,6 +100,9 @@ public class MRRGui {
 	 * Create the application.
 	 */
 	public MRRGui() {
+		MRRGoalSaveLoad.loadGoals();
+		gameList = MRRGoalSaveLoad.gameListCheckbox;
+		goals = MRRGoalSaveLoad.save.getGoals();
 		initialize();
 	}
 
@@ -106,25 +111,27 @@ public class MRRGui {
 	 */
 	private void initialize() {
 		frmMultiraceRandomizerV = new JFrame();
-		frmMultiraceRandomizerV.setTitle("Multi-Game Race Randomizer V0.1");
+		frmMultiraceRandomizerV.setTitle("Multi-Game Race Randomizer V0.2");
 		frmMultiraceRandomizerV.setBounds(100, 100, 450, 492);
 		frmMultiraceRandomizerV.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		frmMultiraceRandomizerV.getContentPane().setLayout(null);
 		frmMultiraceRandomizerV.setLocationRelativeTo(null);
 		scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+		scrollPane.getVerticalScrollBar().setUnitIncrement(20);
 		scrollPane.setBounds(10, 77, 414, 94);
 		ToolTipManager.sharedInstance().setInitialDelay(1000);
+		ToolTipManager.sharedInstance().setDismissDelay(Integer.MAX_VALUE);
 		
 		frmMultiraceRandomizerV.getContentPane().add(scrollPane);
 		scrollPane.setViewportView(panel);
 		panel.setBackground(Color.WHITE);
 		panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
 		
-		loadGoals();
-		System.out.println(goals.toString());
 		System.out.println("Goal count: " + goals.size());
 		
-		for(Game game : gameList) {
+		chosenGoals = new ArrayList<Goal>(goals);
+		
+		for(GameCheckBox game : gameList) {
 			game.setSelected(true);
 			game.setBackground(Color.WHITE);
 			
@@ -153,7 +160,7 @@ public class MRRGui {
 		//Select All
 		btnSelectAll.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				for(Game game : gameList) {
+				for(GameCheckBox game : gameList) {
 					if(! game.isSelected()) {
 						addChosenGoals(game.getGameName());
 						game.setSelected(true);
@@ -169,7 +176,7 @@ public class MRRGui {
 		//Select None
 		btnSelectNone.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				for(Game game : gameList) {
+				for(GameCheckBox game : gameList) {
 					if(game.isSelected()) {
 						removeChosenGoals(game.getGameName());
 						game.setSelected(false);
@@ -329,7 +336,7 @@ public class MRRGui {
 		//Select only Vanilla
 		btnSelectOnlyvanilla.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent arg0) {
-				for(Game game : gameList) {
+				for(GameCheckBox game : gameList) {
 					if(game.getGameType() == GameType.VANILLA && ! game.isSelected()) {
 						addChosenGoals(game.getGameName());
 						game.setSelected(true);
@@ -384,54 +391,6 @@ public class MRRGui {
 		frmMultiraceRandomizerV.getContentPane().add(lblNotEnoughGoals);
 	}
 	
-	public void loadGoals() {
-		String gameName, console, gameType;
-		String goalType, goalName, description, timeEndsWhen;
-		
-		//Read the file
-		try(BufferedReader br = new BufferedReader(new FileReader("goalList.ser"))) {
-			String line = br.readLine();
-			
-			while(line != null) {
-				//Game,Console,GameType
-				int comma1 = line.indexOf(",");
-				int comma2 = line.lastIndexOf(",");
-				gameName = line.substring(0, comma1);
-				console = line.substring(comma1 + 1, comma2);
-				gameType = line.substring(comma2 + 1);
-				gameList.add(new Game(gameName, console, gameType));
-				
-				//GoalType
-				line = br.readLine();
-				
-				while(! line.equals("/")) {
-					goalType = line;
-					
-					//Goals
-					line = br.readLine();
-					while(! line.equals("*")) {
-						goalName = line;
-						line = br.readLine();
-						description = line;
-						line = br.readLine();
-						timeEndsWhen = line;
-						goals.add(new Goal(gameName, console, gameType, goalName, description, goalType, timeEndsWhen));
-						chosenGoals.add(new Goal(gameName, console, gameType, goalName, description, goalType, timeEndsWhen));
-						
-						line = br.readLine();
-					}
-					
-					line = br.readLine();
-				}
-				
-				line = br.readLine();
-			}
-			
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-	
 	public List<Goal> randomizeGoals() {
 		//All filtering is done by the frontend, so the only considerations now are the options.
 		List<Goal> randomizedGoals = new ArrayList<Goal>();
@@ -450,17 +409,29 @@ public class MRRGui {
 			//All other consoles are filtered
 			chosenGoals.removeIf(g -> g.getConsole() != chosenConsole);
 		}
-		
-		Collections.shuffle(chosenGoals);
 
 		for(int i = 0; i < numberOfGoals; i++) {
-			chosenGoal = chosenGoals.get(0);
+			//Build elegibleGames list and pick one at random
+			//otherwise it would be biased toward games with more goals
+			Set<Game> elegibleGames = new TreeSet<Game>();
+			for(Goal goal : chosenGoals) {
+				elegibleGames.add(goal.getGame());
+			}
+			List<Game> elegibleGamesList = new ArrayList<Game>(elegibleGames);
+			Collections.shuffle(elegibleGamesList);
+			Game chosenGame = elegibleGamesList.get(0);
+			
+			//Now build elegibleGoals with the chosen game and pick one at random
+			List<Goal> elegibleGoals = new ArrayList<Goal>(chosenGoals);
+			elegibleGoals.removeIf(g -> ! chosenGame.equals(g.getGame()));
+			Collections.shuffle(elegibleGoals);
+			chosenGoal = elegibleGoals.get(0);
+			
 			randomizedGoals.add(chosenGoal);
 			
 			//If allow dups is not checked, filter out all goal matching the chosen goal's game
 			if(! chckbxAllowDuplicateGames.isSelected()) {
-				String chosenGame = chosenGoal.getGameName();
-				chosenGoals.removeIf(g -> chosenGame.equals(g.getGameName()));
+				chosenGoals.removeIf(g -> chosenGame.equals(g.getGame()));
 			}
 			else {
 				chosenGoals.remove(chosenGoal);
@@ -629,7 +600,7 @@ public class MRRGui {
 		List<Goal> filteredGoals = goals.stream()
 				.filter(g -> goalType == g.getGoalType())
 				.collect(Collectors.toList());
-		for(Game game : gameList) {
+		for(GameCheckBox game : gameList) {
 			if(! game.isSelected()) {
 				filteredGoals.removeIf(g -> game.getGameName().equals(g.getGameName()));
 			}
